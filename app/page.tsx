@@ -1,105 +1,186 @@
-// app/page.js
 'use client';
+import React from 'react';
+import { Layout, Typography, Steps, Card, Button, Progress, Alert, Space, theme, Badge } from 'antd';
+import { LeftOutlined, RightOutlined, ExportOutlined, SaveOutlined, FileAddOutlined, FileTextOutlined, InfoCircleOutlined, FilePdfOutlined, FormOutlined, FileDoneOutlined } from '@ant-design/icons';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
 import { AnnotationProvider } from '@/context/annotation-context';
 import { useDocument } from '@/context/document-context';
 
+const { Content } = Layout;
+const { Title, Text, Paragraph } = Typography;
+
 export default function Home() {
+  const { token } = theme.useToken();
   const { state, handlePageNavigation, handleExport } = useDocument();
-  const { currentStep, imageUrls, currentPageIndex, annotatedImages, progress,error} = state;  
+  const { currentStep, imageUrls, currentPageIndex, annotatedImages, progress, error } = state;  
+
+  // Map current step to Steps component index
+  const getStepIndex = () => {
+    switch(currentStep) {
+      case 'upload': return 0;
+      case 'annotate': return 1;
+      case 'export': return 2;
+      default: return 0;
+    }
+  };
+  
+  const stepItems = [
+    {
+      title: 'Upload',
+      description: 'Select PDF file',
+      // icon: <FilePdfOutlined />,
+    },
+    {
+      title: 'Annotate',
+      description: 'Edit document',
+      // icon: <FormOutlined />,
+    },
+    {
+      title: 'Export',
+      description: 'Download result',
+      // icon: <FileDoneOutlined />,
+    }
+  ];
+
+  // Render page navigation controls
+  const renderPageNavigation = () => (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+      <div className="flex items-center gap-5">
+        <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+          <Badge count={Object.keys(annotatedImages).length} showZero style={{ backgroundColor: '#52c41a' }}>
+          <FileTextOutlined style={{ fontSize: '20px', color: token.colorPrimary }} />
+          </Badge>
+        </div>
+        <div>
+          <Title level={4} className="mb-0">
+            Page {currentPageIndex + 1} of {imageUrls.length}
+          </Title>
+        </div>
+      </div>
+      
+      <Space wrap className="self-start sm:self-auto">
+        <Button
+          icon={<LeftOutlined />}
+          onClick={() => handlePageNavigation(currentPageIndex - 1)}
+          disabled={currentPageIndex === 0}
+        >
+          Previous
+        </Button>
+        <Button
+          type="primary"
+          icon={<RightOutlined />}
+          onClick={() => handlePageNavigation(currentPageIndex + 1)}
+          disabled={currentPageIndex === imageUrls.length - 1}
+        >
+          Next
+        </Button>
+      </Space>
+    </div>
+  );
 
   return (
-    <main className="min-h-screen p-8 bg-gray-50">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-center mb-8">
-          PDF Magic Brush Annotation Tool
-        </h1>
-        {currentStep === 'upload' && (
-          <PdfUploader />
-        )}
-        
-        {currentStep === 'annotate' && imageUrls.length > 0 && (
-          <AnnotationProvider>
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="mb-4 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">
-                Annotate Page {currentPageIndex + 1} of {imageUrls.length}
-              </h2>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handlePageNavigation(currentPageIndex - 1)}
-                  disabled={currentPageIndex === 0}
-                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => handlePageNavigation(currentPageIndex + 1)}
-                  disabled={currentPageIndex === imageUrls.length - 1}
-                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50 hover:bg-gray-300"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Use the Magic Brush to annotate areas you want to blend with surrounding content.
-              </p>
-              {Object.keys(annotatedImages).length > 0 && (
-                <p className="text-xs text-green-600">
-                  {Object.keys(annotatedImages).length} page(s) modified
-                </p>
-              )}
-            </div>
-            
-            <AnnotationCanvas key={`page-${currentPageIndex}`}/>
-            
-            <div className="mt-6 flex justify-between">
-              <div className="text-sm text-gray-500">
-                Changes are automatically saved when navigating between pages
-              </div>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-              >
-                Export Annotated PDF
-              </button>
-            </div>
+    <Layout className="min-h-screen bg-gradient-to-b from-blue-50 to-gray-50">
+      <Content className="h-screen p-4 md:p-6 lg:p-8 overflow-auto">
+        <div className="flex flex-col max-w-6xl mx-auto">
+          {/* App Header */}
+          <div className="text-center mb-6">
+            <Title level={2} className="mb-1 text-3xl md:text-4xl lg:text-5xl" style={{ color: token.colorPrimary }}>
+              GhostWrite
+            </Title>
+            <Text type="secondary" className="text-base md:text-lg">
+              Effortlessly edit and annotate your PDF documents with AI
+            </Text>
           </div>
-          </AnnotationProvider>
-        )}
-        
-        {currentStep === 'export' && (
-          <div className="bg-white p-6 rounded-lg shadow-md text-center">
-            <h2 className="text-xl font-semibold mb-4">Processing Your PDF</h2>
+          
+          <div className='flex bg-white rounded-xl shadow-md mb-6 p-5'>
+          <Steps
+              current={getStepIndex()}
+              items={stepItems}
+              responsive
+              // progressDot
+            />
+          </div>
+          <Card 
+            className="shadow-xl border-0 rounded-2xl overflow-visible"
+            styles={{
+              body: { padding: '24px' }
+            }}
+          >
             
-            {error ? (
-              <div className="text-red-600 mb-4">
-                <p className="font-bold">Error</p>
-                <p>{error}</p>
+            {/* Upload Step */}
+            {currentStep === 'upload' && (
+              <div className="flex flex-col items-center p-16">
+                <div className="w-full max-w-2xl">
+                  <PdfUploader />
+                </div>
               </div>
-            ) : (
-              <>
-                <div className="mb-4 w-full">
-                  <div className="text-gray-600 mb-1">{progress}% complete</div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${progress}%` }}
-                    ></div>
+            )}
+            
+            {/* Annotate Step */}
+            {currentStep === 'annotate' && imageUrls.length > 0 && (
+              <AnnotationProvider>
+                <div className="flex flex-col h-full">
+                  {renderPageNavigation()}
+                  
+                  <div className="mb-5">
+                    <AnnotationCanvas key={`page-${currentPageIndex}`}/>
+                  </div>
+
+                  <div className="mt-auto">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-4">
+                      <Button
+                        type="primary"
+                        size="large"
+                        icon={<ExportOutlined />}
+                        onClick={handleExport}
+                        className="w-full sm:w-auto order-2 sm:order-1 py-3 h-auto rounded-lg"
+                        style={{ paddingLeft: '1.5rem', paddingRight: '1.5rem' }}
+                      >
+                        <span className="text-base">Export Annotated PDF</span>
+                      </Button>
+                      <Text type="secondary" className="order-1 sm:order-2 text-center sm:text-right text-sm">
+                        Preview is updated in real-time
+                      </Text>
+                    </div>
                   </div>
                 </div>
-                <p className="text-gray-600">
-                  Please wait while we process your annotations and prepare your document for download...
-                </p>
-              </>
+              </AnnotationProvider>
             )}
-          </div>
-        )}
-      </div>
-    </main>
+            
+            {currentStep === 'export' && (
+              <div className="p-6 flex justify-center">
+                <Card className="w-full max-w-lg shadow-md text-center border-0 rounded-lg overflow-hidden">
+                  <Title level={4} className="mb-6">Processing Your Document</Title>
+                  
+                  {error ? (
+                    <Alert
+                      message="Error"
+                      description={error}
+                      type="error"
+                      showIcon
+                      className="mb-4"
+                    />
+                  ) : (
+                    <div className="max-w-md mx-auto">
+                      <Progress 
+                        percent={progress} 
+                        status="active" 
+                        className="mb-6" 
+                        strokeWidth={8}
+                        trailColor={token.colorBgLayout}
+                      />
+                      <Paragraph className="text-gray-600">
+                        Please wait while we process your annotations and prepare your document for download...
+                      </Paragraph>
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
+          </Card>
+        </div>
+      </Content>
+    </Layout>
   );
 }

@@ -1,21 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import { Upload, Card, Typography, Progress, Alert, Button, theme } from 'antd';
+import { InboxOutlined, FileOutlined, CheckCircleOutlined, LoadingOutlined, FileTextOutlined } from '@ant-design/icons';
 import * as pdfjsLib from 'pdfjs-dist';
-import Error from 'next/error';
 import { useDocument } from '@/context/document-context';
+
+const { Dragger } = Upload;
+const { Title, Text } = Typography;
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
 
 export default function PdfUploader() {
-  const {handlePdfUploaded} =  useDocument()
+  const { token } = theme.useToken();
+  const { handlePdfUploaded } = useDocument();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [fileName, setFileName] = useState('');
 
-  const processClientSide = async (file:File) => {
+  const processClientSide = async (file: File) => {
     try {
       setStatus('Reading PDF file...');
       const arrayBuffer = await file.arrayBuffer();
@@ -24,7 +31,6 @@ export default function PdfUploader() {
       setStatus('Loading PDF document...');
       const loadingTask = pdfjsLib.getDocument({
         data,
-        // standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
         useSystemFonts: true,
         useWorkerFetch: true
       });
@@ -74,31 +80,29 @@ export default function PdfUploader() {
     }
   };
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement> ) => {
-    if (!event.target.files) return;
-    const file = event.target.files[0];
-    
-    // Validate file type
-    if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file');
-      return;
-    }
-
+  const handleUpload = async (file: File) => {
     // Validate file size (10MB limit)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (file.size > MAX_FILE_SIZE) {
-      alert('File size exceeds 10MB limit');
-      return;
+      setErrorMessage('File size exceeds 10MB limit');
+      return Upload.LIST_IGNORE;
     }
 
+    setFileName(file.name);
     setIsProcessing(true);
     setProgress(0);
     setStatus('Initializing...');
+    setErrorMessage('');
 
     try {
       // Try client-side processing first
       const result = await processClientSide(file);
-      if (result) handlePdfUploaded(result.imageUrls, result.pageCount);
+      if (result) {
+        // Add some artificial delay to show success state
+        setTimeout(() => {
+          handlePdfUploaded(result.imageUrls, result.pageCount);
+        }, 500);
+      }
     } catch (error) {
       console.warn('Client-side processing failed, falling back to server:', error);
       setStatus('Falling back to server processing...');
@@ -120,51 +124,124 @@ export default function PdfUploader() {
 
         const data = await response.json();
         handlePdfUploaded(data.imageUrls, data.pageCount);
-      } catch (serverError:any) {
+      } catch (serverError: any) {
         console.error('Server-side processing failed:', serverError);
-        alert(`Failed to process PDF: ${serverError.message}`);
+        setErrorMessage(`Failed to process PDF: ${serverError.message}`);
       }
     } finally {
       setIsProcessing(false);
       setStatus('');
     }
+    
+    return Upload.LIST_IGNORE; // Prevent default upload list UI
+  };
+
+  const renderStatusContent = () => {
+    if (errorMessage) {
+      return (
+        <Alert
+          message="Upload Failed"
+          description={errorMessage}
+          type="error"
+          showIcon
+          className="mb-4"
+          closable
+          onClose={() => setErrorMessage('')}
+          action={
+            <Button size="small" danger onClick={() => setErrorMessage('')}>
+              Try Again
+            </Button>
+          }
+        />
+      );
+    }
+
+    if (isProcessing) {
+      return (
+        <div className="mt-6 bg-gray-50 rounded-lg border border-gray-100 shadow-sm p-4">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+              <FileTextOutlined style={{ fontSize: '20px', color: token.colorPrimary }} />
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <Text strong className="block text-ellipsis overflow-hidden whitespace-nowrap">{fileName}</Text>
+              <Text type="secondary">{status || 'Processing...'}</Text>
+            </div>
+            <LoadingOutlined style={{ fontSize: '24px', color: token.colorPrimary }} />
+          </div>
+          <Progress 
+            percent={Math.round(progress)} 
+            status="active" 
+            strokeColor={token.colorPrimary}
+            trailColor={token.colorBgLayout}
+            // size={8}
+            className="mb-0"
+          />
+        </div>
+      );
+    }
+
+    return null;
   };
 
   return (
-    <div className="w-full p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-4">Upload PDF Document</h2>
-      <div className="flex items-center justify-center w-full">
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <svg className="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="mb-2 text-sm text-gray-500">
-              <span className="font-semibold">Click to upload</span> or drag and drop
-            </p>
-            <p className="text-xs text-gray-500">PDF files only (max 10MB)</p>
-          </div>
-          <input
-            type="file"
-            className="hidden"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            disabled={isProcessing}
-          />
-        </label>
-      </div>
-
-      {isProcessing && (
-        <div className="mt-4">
-          <p className="text-sm text-gray-600 mb-1">{status || 'Processing...'}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-            <div 
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
+    <div className="w-full">
+      <Card 
+        className="border-0 rounded-xl shadow-lg overflow-hidden" 
+        styles={{body: { padding: '24px' }}}
+      >
+        {!isProcessing && (
+          <>
+            <div className="text-center mb-6">
+              <Title level={3} className="mb-2">Upload Your PDF Document</Title>
+              <Text type="secondary" className="text-lg">
+                Drag and drop or select a file to get started
+              </Text>
+            </div>
+            
+            <Dragger
+              name="file"
+              multiple={false}
+              accept="application/pdf"
+              beforeUpload={handleUpload}
+              showUploadList={false}
+              disabled={isProcessing}
+              className="mb-6 border-dashed rounded-xl transition-all duration-300 hover:border-primary"
+              style={{ 
+                padding: '36px 16px',
+                background: 'rgba(24, 144, 255, 0.02)',
+                borderColor: token.colorPrimaryBorderHover
+              }}
+            >
+              <div className="p-4">
+                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                  <InboxOutlined style={{ fontSize: '28px', color: token.colorPrimary }} />
+                </div>
+                <p className="text-xl font-medium mb-2">
+                  Click or drag PDF file here
+                </p>
+                <p className="text-gray-500">
+                  PDF files only (max 10MB)
+                </p>
+              </div>
+            </Dragger>
+            
+            <div className="bg-blue-50 p-4 rounded-lg flex items-start gap-3 mt-4">
+              <div className="text-blue-500 mt-1">
+                <CheckCircleOutlined />
+              </div>
+              <div>
+                <Text strong className="text-blue-700">Privacy First</Text>
+                <Text className="text-blue-700 block">
+                  Your document will be processed locally in your browser for complete privacy
+                </Text>
+              </div>
+            </div>
+          </>
+        )}
+        
+        {renderStatusContent()}
+      </Card>
     </div>
   );
 }
