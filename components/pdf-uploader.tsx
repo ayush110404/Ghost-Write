@@ -2,19 +2,18 @@
 
 import { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import Error from 'next/error';
 
-// Initialize PDF.js worker and standard fonts
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`;
 }
 
-export default function PdfUploader({ onPdfUploaded }) {
+export default function PdfUploader({ onPdfUploaded }:{onPdfUploaded:{(urls:string[], pageCount:number):void}}) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
 
-  const processClientSide = async (file) => {
+  const processClientSide = async (file:File) => {
     try {
       setStatus('Reading PDF file...');
       const arrayBuffer = await file.arrayBuffer();
@@ -23,7 +22,7 @@ export default function PdfUploader({ onPdfUploaded }) {
       setStatus('Loading PDF document...');
       const loadingTask = pdfjsLib.getDocument({
         data,
-        standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
+        // standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl,
         useSystemFonts: true,
         useWorkerFetch: true
       });
@@ -45,6 +44,8 @@ export default function PdfUploader({ onPdfUploaded }) {
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
+        if(!context) return;
+
         // Set white background
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, canvas.width, canvas.height);
@@ -57,8 +58,10 @@ export default function PdfUploader({ onPdfUploaded }) {
         }).promise;
 
         // Convert canvas to blob
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
-        imageUrls.push(URL.createObjectURL(blob));
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+        if (blob) {
+          imageUrls.push(URL.createObjectURL(blob));
+        }
       }
 
       setStatus('Processing complete!');
@@ -69,9 +72,9 @@ export default function PdfUploader({ onPdfUploaded }) {
     }
   };
 
-  const handleFileChange = async (event) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement> ) => {
+    if (!event.target.files) return;
     const file = event.target.files[0];
-    if (!file) return;
     
     // Validate file type
     if (file.type !== 'application/pdf') {
@@ -93,7 +96,7 @@ export default function PdfUploader({ onPdfUploaded }) {
     try {
       // Try client-side processing first
       const result = await processClientSide(file);
-      onPdfUploaded(result.imageUrls, result.pageCount);
+      if (result) onPdfUploaded(result.imageUrls, result.pageCount);
     } catch (error) {
       console.warn('Client-side processing failed, falling back to server:', error);
       setStatus('Falling back to server processing...');
@@ -115,7 +118,7 @@ export default function PdfUploader({ onPdfUploaded }) {
 
         const data = await response.json();
         onPdfUploaded(data.imageUrls, data.pageCount);
-      } catch (serverError) {
+      } catch (serverError:any) {
         console.error('Server-side processing failed:', serverError);
         alert(`Failed to process PDF: ${serverError.message}`);
       }

@@ -5,20 +5,35 @@ import { useState, useEffect } from 'react';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
 
+type AnnotatedImageProp = {
+  [index:number]:{
+    imageData: string, 
+    annotatedAreas: AnnotatedArea[]
+  }
+}
+type AnnotatedArea = {
+  x: number;
+  y: number;
+  x2?: number;
+  y2?: number;
+  radius?: number;
+  type: string;
+}
+
 export default function Home() {
   const [currentStep, setCurrentStep] = useState('upload'); // 'upload', 'annotate', 'export'
-  const [imageUrls, setImageUrls] = useState([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [annotatedImages, setAnnotatedImages] = useState({});
+  const [annotatedImages, setAnnotatedImages] = useState<AnnotatedImageProp>({});
   const [exportProgress, setExportProgress] = useState(0);
   const [exportError, setExportError] = useState(null);
   
-  const handlePdfUploaded = (urls, pageCount) => {
+  const handlePdfUploaded = (urls:string[], pageCount:number) => {
     setImageUrls(urls);
     setCurrentStep('annotate');
   };
   
-  const handleSaveAnnotation = (imageData, annotatedAreas) => {
+  const handleSaveAnnotation = (imageData:string, annotatedAreas:AnnotatedArea[]) => {
     setAnnotatedImages(prev => ({
       ...prev,
       [currentPageIndex]: { imageData, annotatedAreas }
@@ -26,7 +41,7 @@ export default function Home() {
   };
   
   // Handle navigation between pages - save current page before navigating
-  const handlePageNavigation = (newIndex) => {
+  const handlePageNavigation = (newIndex:number) => {
     // Only navigate if new index is valid
     if (newIndex >= 0 && newIndex < imageUrls.length) {
       setCurrentPageIndex(newIndex);
@@ -114,7 +129,7 @@ export default function Home() {
         setCurrentStep('annotate');
       }, 2000);
       
-    } catch (error) {
+    } catch (error:any) {
       console.error('Error exporting PDF:', error);
       setExportError(error.message || 'Failed to export annotated PDF');
       
