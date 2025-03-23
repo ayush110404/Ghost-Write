@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
 import { AnnotationProvider } from '@/context/annotation-context';
-import { useDocument } from '@/context/image-context';
+import { useDocument } from '@/context/document-context';
 
 type AnnotatedImageProp = {
   [index:number]:{

@@ -1,4 +1,4 @@
-// contexts/AnnotationContext.tsx
+'use client'
 import React, { createContext, useContext, useState, useReducer, useCallback } from 'react';
 
 // Types
