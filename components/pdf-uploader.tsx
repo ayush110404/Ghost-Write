@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 import Error from 'next/error';
+import { useDocument } from '@/context/document-context';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
 
-export default function PdfUploader({ onPdfUploaded }:{onPdfUploaded:{(urls:string[], pageCount:number):void}}) {
+export default function PdfUploader() {
+  const {handlePdfUploaded} =  useDocument()
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
@@ -96,7 +98,7 @@ export default function PdfUploader({ onPdfUploaded }:{onPdfUploaded:{(urls:stri
     try {
       // Try client-side processing first
       const result = await processClientSide(file);
-      if (result) onPdfUploaded(result.imageUrls, result.pageCount);
+      if (result) handlePdfUploaded(result.imageUrls, result.pageCount);
     } catch (error) {
       console.warn('Client-side processing failed, falling back to server:', error);
       setStatus('Falling back to server processing...');
@@ -117,7 +119,7 @@ export default function PdfUploader({ onPdfUploaded }:{onPdfUploaded:{(urls:stri
         }
 
         const data = await response.json();
-        onPdfUploaded(data.imageUrls, data.pageCount);
+        handlePdfUploaded(data.imageUrls, data.pageCount);
       } catch (serverError:any) {
         console.error('Server-side processing failed:', serverError);
         alert(`Failed to process PDF: ${serverError.message}`);

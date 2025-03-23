@@ -1,53 +1,22 @@
 // app/page.js
 'use client';
-
-import { useState, useEffect } from 'react';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
 import { AnnotationProvider } from '@/context/annotation-context';
 import { useDocument } from '@/context/document-context';
 
-type AnnotatedImageProp = {
-  [index:number]:{
-    imageData: string, 
-    annotatedAreas: AnnotatedArea[]
-  }
-}
-type AnnotatedArea = {
-  x: number;
-  y: number;
-  x2?: number;
-  y2?: number;
-  radius?: number;
-  type: string;
-}
-
 export default function Home() {
-  const { 
-    state, 
-    handlePdfUploaded, 
-    handleSaveAnnotation, 
-    handlePageNavigation, 
-    handleExport 
-  } = useDocument();
+  const { state, handlePageNavigation, handleExport } = useDocument();
+  const { currentStep, imageUrls, currentPageIndex, annotatedImages, progress,error} = state;  
 
-  const { 
-    currentStep, 
-    imageUrls, 
-    currentPageIndex, 
-    annotatedImages, 
-    progress,
-    error
-  } = state;  
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">
           PDF Magic Brush Annotation Tool
         </h1>
-        
         {currentStep === 'upload' && (
-          <PdfUploader onPdfUploaded={handlePdfUploaded} />
+          <PdfUploader />
         )}
         
         {currentStep === 'annotate' && imageUrls.length > 0 && (
@@ -86,11 +55,7 @@ export default function Home() {
               )}
             </div>
             
-            <AnnotationCanvas
-              imageUrl={annotatedImages[currentPageIndex]?.imageData || imageUrls[currentPageIndex]}
-              onSave={handleSaveAnnotation}
-              key={`page-${currentPageIndex}`}
-            />
+            <AnnotationCanvas key={`page-${currentPageIndex}`}/>
             
             <div className="mt-6 flex justify-between">
               <div className="text-sm text-gray-500">

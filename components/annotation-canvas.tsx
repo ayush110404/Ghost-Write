@@ -6,6 +6,7 @@ import { useDrawingHandlers } from '../hooks/useDrawingHandlers';
 import { useAnnotation } from '../context/annotation-context';
 import { TOOLS } from '../utils/constants';
 import { applyMagicBrush, applyMagicBrushToArea } from '@/utils/image-processing';
+import { useDocument } from '@/context/document-context';
 
 // UI Component for the toolbar
 function ToolbarSection({
@@ -101,22 +102,9 @@ function AreaControls({
   return null;
 }
 
-export default function AnnotationCanvas({ 
-  imageUrl, 
-  onSave 
-}: {
-  imageUrl: string, 
-  onSave: (imageData: string, annotatedAreas: {
-    x: number;
-    y: number;
-    x2?: number;
-    y2?: number;
-    radius?: number;
-    type: string;
-  }[]) => void
-}) {
-  // Use the canvas initialization hook
-  const { canvasRef, context } = useCanvasInitialization(imageUrl);
+export default function AnnotationCanvas() {
+  const {state,handleSaveAnnotation} = useDocument();
+  const { canvasRef, context } = useCanvasInitialization(state.annotatedImages[state.currentPageIndex]?.imageData || state.imageUrls[state.currentPageIndex]);
   
   // Get state and actions from the annotation context
   const {
@@ -181,7 +169,7 @@ export default function AnnotationCanvas({
   const handleSave = () => {
     if (!canvasRef.current) return;
     const imageData = canvasRef.current.toDataURL('image/png');
-    onSave(imageData, annotatedAreas);
+    handleSaveAnnotation(imageData, annotatedAreas);
   };
 
   const handleApplyToArea = async () => {

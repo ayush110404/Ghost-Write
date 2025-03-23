@@ -137,7 +137,7 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
     
     try {
       // For large documents, process in batches for better UX
-      const batchSize = 5;
+      const batchSize = 15;
       const totalBatches = Math.ceil(pagesToExport.length / batchSize);
       
       let allResults = [];
