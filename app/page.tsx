@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
+import { AnnotationProvider } from '@/context/annotation-context';
 
 type AnnotatedImageProp = {
   [index:number]:{
@@ -152,6 +153,7 @@ export default function Home() {
         )}
         
         {currentStep === 'annotate' && imageUrls.length > 0 && (
+          <AnnotationProvider>
           <div className="bg-white p-6 rounded-lg shadow-md">
             <div className="mb-4 flex justify-between items-center">
               <h2 className="text-xl font-semibold">
@@ -204,6 +206,7 @@ export default function Home() {
               </button>
             </div>
           </div>
+          </AnnotationProvider>
         )}
         
         {currentStep === 'export' && (
