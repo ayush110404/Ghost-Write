@@ -1,8 +1,8 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { throttle } from 'lodash';
 import { getEventCoordinates } from '../utils/canvas-util';
 import { TOOLS } from '../context/annotation-context';
-import { applyEraser, applyMagicBrush } from '../utils/image-processing';
+import { applyEraser, applyMagicBrush, applyMagicBrushToArea } from '../utils/image-processing';
 import { useAnnotation } from '../context/annotation-context';
 
 export function useDrawingHandlers(context: CanvasRenderingContext2D | null, canvasRef: HTMLCanvasElement | null) {
@@ -10,16 +10,20 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
     isDrawing, setDrawing,
     tool, isErasing,
     areaStart, setAreaStart,
-    setAreaEnd, tempImageData,
-    setTempImageData,
+    areaEnd, setAreaEnd, 
+    tempImageData, setTempImageData,
     brushSize, brushMask,
     originalImageData,
     addAnnotatedArea,
-    setProcessingArea
+    setProcessingArea,
+    setProcessingProgress,
+    resetAreaSelection
   } = useAnnotation();
 
   // Save last position for pen tool
   const lastPosition = useRef<{ x: number, y: number } | null>(null);
+  // Flag to track if we're currently in a mouseup/touchend event
+  const isEndingDrag = useRef<boolean>(false);
 
   // Use throttle instead of debounce for smoother drawing operations
   // Throttled eraser - applies at regular intervals for better performance
@@ -50,6 +54,61 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
     [context, originalImageData, canvasRef, brushSize, brushMask, addAnnotatedArea]
   );
 
+  // Throttled area processing to prevent performance issues
+  const throttledApplyToArea = useCallback(
+    throttle(async () => {
+      if (!areaStart || !areaEnd || !context || !originalImageData || !canvasRef) return;
+      
+      // Minimum area size check to prevent processing tiny selections
+      const width = Math.abs(areaEnd.x - areaStart.x);
+      const height = Math.abs(areaEnd.y - areaStart.y);
+      if (width < 5 || height < 5) {
+        resetAreaSelection();
+        return;
+      }
+
+      // Set processing flag to show progress indicator
+      setProcessingArea(true);
+
+      try {
+        await applyMagicBrushToArea({
+          areaStart,
+          areaEnd,
+          context,
+          originalImageData,
+          tempImageData,
+          brushSize,
+          onProgressUpdate: setProcessingProgress,
+          onComplete: (areaInfo) => {
+            addAnnotatedArea(areaInfo);
+            resetAreaSelection();
+            setProcessingArea(false);
+            setProcessingProgress(0);
+          }
+        });
+      } catch (error) {
+        console.error("Error applying magic brush to area:", error);
+        setProcessingArea(false);
+        setProcessingProgress(0);
+        resetAreaSelection();
+      }
+    }, 300), // Lower frequency for this heavy operation
+    [areaStart, areaEnd, context, originalImageData, tempImageData, brushSize, setProcessingArea, 
+     setProcessingProgress, addAnnotatedArea, resetAreaSelection, canvasRef]
+  );
+
+  // Effect to trigger area processing when area selection is complete
+  useEffect(() => {
+    if (tool === TOOLS.AREA_MAGIC_BRUSH && 
+        !isDrawing && 
+        areaStart && 
+        areaEnd && 
+        isEndingDrag.current) {
+      throttledApplyToArea();
+      isEndingDrag.current = false;
+    }
+  }, [tool, isDrawing, areaStart, areaEnd, throttledApplyToArea]);
+
   // Start drawing handler
   const startDrawing = useCallback((e: React.MouseEvent | React.TouchEvent | any) => {
     e.preventDefault();
@@ -59,6 +118,7 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
     lastPosition.current = { x: offsetX, y: offsetY };
     
     setDrawing(true);
+    isEndingDrag.current = false;
 
     if (isErasing) {
       throttledApplyEraser(offsetX, offsetY);
@@ -131,8 +191,10 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
   ]);
 
   // Stop drawing handler
-  const stopDrawing = useCallback(() => {
+  const stopDrawing = useCallback((e?: React.MouseEvent | React.TouchEvent | any) => {
     if (!isDrawing) return;
+    
+    if (e) e.preventDefault();
     
     if (tool === TOOLS.PEN && context) {
       context.closePath();
@@ -145,6 +207,9 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
           type: 'pen' 
         });
       }
+    } else if (tool === TOOLS.AREA_MAGIC_BRUSH) {
+      // Set flag to trigger auto-processing in the effect
+      isEndingDrag.current = true;
     }
     
     lastPosition.current = null;
@@ -158,6 +223,7 @@ export function useDrawingHandlers(context: CanvasRenderingContext2D | null, can
     }
     
     lastPosition.current = null;
+    isEndingDrag.current = false;
     setDrawing(false);
     setProcessingArea(false);
     setAreaStart(null);
