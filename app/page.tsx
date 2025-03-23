@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import PdfUploader from '@/components/pdf-uploader';
 import AnnotationCanvas from '@/components/annotation-canvas';
 import { AnnotationProvider } from '@/context/annotation-context';
+import { useDocument } from '@/context/image-context';
 
 type AnnotatedImageProp = {
   [index:number]:{
@@ -22,125 +23,22 @@ type AnnotatedArea = {
 }
 
 export default function Home() {
-  const [currentStep, setCurrentStep] = useState('upload'); // 'upload', 'annotate', 'export'
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [annotatedImages, setAnnotatedImages] = useState<AnnotatedImageProp>({});
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportError, setExportError] = useState(null);
-  
-  const handlePdfUploaded = (urls:string[], pageCount:number) => {
-    setImageUrls(urls);
-    setCurrentStep('annotate');
-  };
-  
-  const handleSaveAnnotation = (imageData:string, annotatedAreas:AnnotatedArea[]) => {
-    setAnnotatedImages(prev => ({
-      ...prev,
-      [currentPageIndex]: { imageData, annotatedAreas }
-    }));
-  };
-  
-  // Handle navigation between pages - save current page before navigating
-  const handlePageNavigation = (newIndex:number) => {
-    // Only navigate if new index is valid
-    if (newIndex >= 0 && newIndex < imageUrls.length) {
-      setCurrentPageIndex(newIndex);
-    }
-  };
-  
-  const handleExport = async () => {
-    setExportError(null);
-    setExportProgress(0);
-    setCurrentStep('export');
-    
-    // Create array of all pages - use annotated versions when available
-    const pagesToExport = imageUrls.map((originalUrl, index) => {
-      return annotatedImages[index]?.imageData || originalUrl;
-    });
-    
-    try {
-      // Save any unsaved changes on the current page
-      const canvas = document.querySelector('canvas');
-      if (canvas) {
-        const currentPageImage = canvas.toDataURL('image/png');
-        setAnnotatedImages(prev => ({
-          ...prev,
-          [currentPageIndex]: { 
-            imageData: currentPageImage,
-            annotatedAreas: prev[currentPageIndex]?.annotatedAreas || []
-          }
-        }));
-        
-        // Update the pagesToExport with the latest canvas state
-        pagesToExport[currentPageIndex] = currentPageImage;
-      }
-      
-      // For large documents, process in batches for better UX
-      const batchSize = 5;
-      const totalBatches = Math.ceil(pagesToExport.length / batchSize);
-      
-      let allResults = [];
-      
-      for (let batch = 0; batch < totalBatches; batch++) {
-        const start = batch * batchSize;
-        const end = Math.min(start + batchSize, pagesToExport.length);
-        const batchImages = pagesToExport.slice(start, end);
-        
-        const response = await fetch('/api/process', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            images: batchImages,
-            batchIndex: batch,
-            isFinalBatch: batch === totalBatches - 1
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process batch');
-        }
-        
-        const data = await response.json();
-        allResults.push(data);
-        
-        // Update progress
-        setExportProgress(Math.round(((batch + 1) / totalBatches) * 100));
-      }
-      
-      // If only one batch was processed, use its PDF URL
-      // Otherwise, we need to merge PDFs (handled by the backend in the last batch)
-      const finalResult = allResults[allResults.length - 1];
-      
-      // Trigger download
-      if (finalResult.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = finalResult.pdfUrl;
-        link.download = 'annotated-document.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-      
-      // Return to annotation after short delay
-      setTimeout(() => {
-        setCurrentStep('annotate');
-      }, 2000);
-      
-    } catch (error:any) {
-      console.error('Error exporting PDF:', error);
-      setExportError(error.message || 'Failed to export annotated PDF');
-      
-      // Return to annotation after error
-      setTimeout(() => {
-        setCurrentStep('annotate');
-      }, 4000);
-    }
-  };
-  
+  const { 
+    state, 
+    handlePdfUploaded, 
+    handleSaveAnnotation, 
+    handlePageNavigation, 
+    handleExport 
+  } = useDocument();
+
+  const { 
+    currentStep, 
+    imageUrls, 
+    currentPageIndex, 
+    annotatedImages, 
+    progress,
+    error
+  } = state;  
   return (
     <main className="min-h-screen p-8 bg-gray-50">
       <div className="max-w-4xl mx-auto">
@@ -213,19 +111,19 @@ export default function Home() {
           <div className="bg-white p-6 rounded-lg shadow-md text-center">
             <h2 className="text-xl font-semibold mb-4">Processing Your PDF</h2>
             
-            {exportError ? (
+            {error ? (
               <div className="text-red-600 mb-4">
                 <p className="font-bold">Error</p>
-                <p>{exportError}</p>
+                <p>{error}</p>
               </div>
             ) : (
               <>
                 <div className="mb-4 w-full">
-                  <div className="text-gray-600 mb-1">{exportProgress}% complete</div>
+                  <div className="text-gray-600 mb-1">{progress}% complete</div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
-                      style={{ width: `${exportProgress}%` }}
+                      style={{ width: `${progress}%` }}
                     ></div>
                   </div>
                 </div>
