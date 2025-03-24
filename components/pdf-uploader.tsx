@@ -158,23 +158,25 @@ export default function PdfUploader() {
 
     if (isProcessing) {
       return (
-        <div className="mt-6 bg-gray-50 rounded-lg border border-gray-100 shadow-sm p-4">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-              <FileTextOutlined style={{ fontSize: '20px', color: token.colorPrimary }} />
+        <div className="mt-4 sm:mt-6 rounded-lg border shadow-sm p-3 sm:p-4" style={{ 
+          backgroundColor: token.colorBgLayout,
+          borderColor: token.colorBorderSecondary
+        }}>
+          <div className="flex items-center gap-2 sm:gap-4 mb-3 sm:mb-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: token.colorInfoBg }}>
+              <FileTextOutlined style={{ fontSize: '16px', color: token.colorPrimary }} />
             </div>
             <div className="flex-1 overflow-hidden">
-              <Text strong className="block text-ellipsis overflow-hidden whitespace-nowrap">{fileName}</Text>
-              <Text type="secondary">{status || 'Processing...'}</Text>
+              <Text strong className="block text-ellipsis overflow-hidden whitespace-nowrap text-sm sm:text-base">{fileName}</Text>
+              <Text type="secondary" className="text-xs sm:text-sm">{status || 'Processing...'}</Text>
             </div>
-            <LoadingOutlined style={{ fontSize: '24px', color: token.colorPrimary }} />
+            <LoadingOutlined style={{ fontSize: '20px', color: token.colorPrimary }} />
           </div>
           <Progress 
             percent={Math.round(progress)} 
             status="active" 
             strokeColor={token.colorPrimary}
-            trailColor={token.colorBgLayout}
-            // size={8}
+            trailColor={token.colorBgContainer}
             className="mb-0"
           />
         </div>
@@ -188,13 +190,13 @@ export default function PdfUploader() {
     <div className="w-full">
       <Card 
         className="border-0 rounded-xl shadow-lg overflow-hidden" 
-        styles={{body: { padding: '24px' }}}
+        styles={{body: { padding: '16px sm:24px' }}}
       >
         {!isProcessing && (
           <>
-            <div className="text-center mb-6">
-              <Title level={3} className="mb-2">Upload Your PDF Document</Title>
-              <Text type="secondary" className="text-lg">
+            <div className="text-center mb-4 sm:mb-6">
+              <Title level={3} className="mb-1 sm:mb-2 text-xl sm:text-2xl md:text-3xl">Upload Your PDF Document</Title>
+              <Text type="secondary" className="text-sm sm:text-base md:text-lg">
                 Drag and drop or select a file to get started
               </Text>
             </div>
@@ -206,33 +208,33 @@ export default function PdfUploader() {
               beforeUpload={handleUpload}
               showUploadList={false}
               disabled={isProcessing}
-              className="mb-6 border-dashed rounded-xl transition-all duration-300 hover:border-primary"
+              className="mb-4 sm:mb-6 border-dashed rounded-xl transition-all duration-300"
               style={{ 
-                padding: '36px 16px',
-                background: 'rgba(24, 144, 255, 0.02)',
+                padding: '24px 16px',
+                background: `${token.colorPrimaryBg}`,
                 borderColor: token.colorPrimaryBorderHover
               }}
             >
-              <div className="p-4">
-                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
-                  <InboxOutlined style={{ fontSize: '28px', color: token.colorPrimary }} />
+              <div className="p-2 sm:p-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4" style={{ backgroundColor: token.colorInfoBg }}>
+                  <InboxOutlined style={{ fontSize: '24px', color: token.colorPrimary }} />
                 </div>
-                <p className="text-xl font-medium mb-2">
+                <p className="text-lg sm:text-xl font-medium mb-1 sm:mb-2">
                   Click or drag PDF file here
                 </p>
-                <p className="text-gray-500">
+                <p className="text-xs sm:text-sm" style={{ color: token.colorTextSecondary }}>
                   PDF files only (max 10MB)
                 </p>
               </div>
             </Dragger>
             
-            <div className="bg-blue-50 p-4 rounded-lg flex items-start gap-3 mt-4">
-              <div className="text-blue-500 mt-1">
+            <div className="p-3 sm:p-4 rounded-lg flex items-start gap-3 mt-3 sm:mt-4" style={{ backgroundColor: token.colorInfoBg }}>
+              <div style={{ color: token.colorInfo }}>
                 <CheckCircleOutlined />
               </div>
               <div>
-                <Text strong className="text-blue-700">Privacy First</Text>
-                <Text className="text-blue-700 block">
+                <Text strong style={{ color: token.colorInfoText }}>Privacy First</Text>
+                <Text className="block text-xs sm:text-sm" style={{ color: token.colorInfoText }}>
                   Your document will be processed locally in your browser for complete privacy
                 </Text>
               </div>
