@@ -134,59 +134,41 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
     const pagesToExport = state.imageUrls.map((originalUrl, index) => {
       return state.annotatedImages[index]?.imageData || originalUrl;
     });
+
     
     try {
-      // For large documents, process in batches for better UX
-      const batchSize = 15;
-      const totalBatches = Math.ceil(pagesToExport.length / batchSize);
+      const response = await fetch('/api/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images: pagesToExport,
+          // filename: `GhostWrite.pdf`
+        }),
+      });
       
-      let allResults = [];
-      
-      for (let batch = 0; batch < totalBatches; batch++) {
-        const start = batch * batchSize;
-        const end = Math.min(start + batchSize, pagesToExport.length);
-        const batchImages = pagesToExport.slice(start, end);
-        
-        const response = await fetch('/api/process', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            images: batchImages,
-            batchIndex: batch,
-            isFinalBatch: batch === totalBatches - 1
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process batch');
-        }
-        
-        const data = await response.json();
-        allResults.push(data);
-        
-        // Update progress
-        dispatch({ 
-          type: 'SET_PROGRESS', 
-          payload: Math.round(((batch + 1) / totalBatches) * 100) 
-        });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process PDF');
       }
       
-      // If only one batch was processed, use its PDF URL
-      // Otherwise, we need to merge PDFs (handled by the backend in the last batch)
-      const finalResult = allResults[allResults.length - 1];
+      // Create a blob from the PDF data
+      const blob = await response.blob();
+      dispatch({ type: 'SET_PROGRESS', payload: 70 });
       
-      // Trigger download
-      if (finalResult.pdfUrl) {
-        const link = document.createElement('a');
-        link.href = finalResult.pdfUrl;
-        link.download = 'annotated-document.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      // Create a download link and trigger it
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = 'my-document.pdf'; // You can set this dynamically
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      a.remove();
+
+      dispatch({ type: 'SET_PROGRESS', payload: 100 });
+  
       
       // Return to annotation after short delay
       setTimeout(() => {
@@ -203,7 +185,7 @@ export function DocumentProvider({ children }: { children: React.ReactNode }) {
       // Return to annotation after error
       setTimeout(() => {
         dispatch({ type: 'SET_CURRENT_STEP', payload: 'annotate' });
-      }, 4000);
+      }, 2000);
     }
   }, [state.imageUrls, state.annotatedImages]);
   ;
